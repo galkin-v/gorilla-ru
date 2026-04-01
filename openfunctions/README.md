@@ -35,7 +35,7 @@ All of our models are hosted on our Huggingface UC Berkeley gorilla-llm org: [go
 1. OpenFunctions is compatible with OpenAI Functions
 
 ```bash
-!pip install openai==0.28.1
+!uv pip install openai==0.28.1
 ```
 
 2. Point to Gorilla hosted servers
@@ -217,7 +217,7 @@ First, follow the setup instructions as follows:
 # Create a new Conda environment with Python 3.10
 conda create -n openfunctions python=3.10
 conda activate openfunctions
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 Then, run the example code in `inference_local.py` to see how the model works.

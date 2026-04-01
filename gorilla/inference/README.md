@@ -19,7 +19,7 @@ You should install dependencies using the following command:
 ```bash
 conda create -n gorilla python=3.10
 conda activate gorilla
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 We release the weights for [`gorilla-mpt-7b-hf-v0`](https://huggingface.co/gorilla-llm/gorilla-mpt-7b-hf-v0) and [`gorilla-falcon-7b-hf-v0`](https://huggingface.co/gorilla-llm/gorilla-falcon-7b-hf-v0) on Huggingface. You can directly download them! For the llama-finetuned models we release the weights as a delta to be compliant with the LLaMA model license. You can apply the delta weights using the following commands below: 
@@ -237,7 +237,7 @@ Once the Gorilla model is successfully pushed to Replicate, it will be visible o
 
 First, install the Replicate Python client library:
 ```bash
-pip install replicate
+uv pip install replicate
 ```
 Before using the Python client, authenticate by setting your Replicate API token in an environment variable:
 ```bash

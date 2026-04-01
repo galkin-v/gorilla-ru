@@ -32,7 +32,7 @@ conda activate goex
 **2.)** Install the `goex` CLI tool
 
 ```sh
-pip install -e .
+uv pip install -e .
 ```
 
 **3.)** Install and initialize Mkcert to support OAuth2 token exchange [required for services that require https for redirect URL e.g Slack]

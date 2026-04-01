@@ -21,7 +21,7 @@ All of our models are hosted on our Huggingface UC Berkeley gorilla-llm org: [go
 1. OpenFunctions is compatible with OpenAI Functions
 
 ```bash
-!pip install openai==0.28.1
+!uv pip install openai==0.28.1
 ```
 
 2. Point to Gorilla hosted servers
@@ -157,7 +157,7 @@ The server API endpoint mirrors the interface of the API call executed by `opena
 
 Ensure you have the required libraries:
 ```bash
-pip install fastapi uvicorn transformers torch
+uv pip install fastapi uvicorn transformers torch
 ```
 
 Similar to the process outlined in the "Running OpenFunctions Locally" section, the model is loaded from HuggingFace for local serving. Only use the `get_prompt` format if you are hosting locally.
@@ -246,7 +246,7 @@ if __name__ == "__main__":
 
 Ensure you have the required libraries:
 ```bash
-!pip install openai==0.28.1
+!uv pip install openai==0.28.1
 ```
 
 The example client below demonstrates how to interact with the locally hosted OpenFunctions model using `openai.ChatCompletion.create`, akin to using Gorilla hosted servers.

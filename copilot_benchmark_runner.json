@@ -45,6 +45,52 @@
         ["resume", ["resume"]],
         ["show_live_stats", ["show_live_stats"]]
       ]
+    },
+    "ru_bfcl_v3": {
+      "kind": "single_stage",
+      "description": "Russian BFCL V3 benchmark via Gorilla external runner.",
+      "provider_contract": {
+        "type": "command_v1",
+        "runner_dir": "berkeley-function-call-leaderboard",
+        "python": ".venv/bin/python",
+        "command": [
+          "{python}",
+          "copilot_provider_runner.py",
+          "--benchmark-name",
+          "{benchmark_name}",
+          "--output-dir",
+          "{output_dir}",
+          "--candidate-base-url",
+          "{candidate_base_url}",
+          "--candidate-model-id",
+          "{candidate_model_id}",
+          "--candidate-api-key",
+          "{candidate_api_key}",
+          "--parallelism",
+          "{parallelism}",
+          "--request-timeout",
+          "{request_timeout}",
+          "--limit-samples",
+          "{limit_samples}",
+          "--request-params-json",
+          "{request_params_json}",
+          "--resume",
+          "{resume}",
+          "--show-live-stats",
+          "{show_live_stats}"
+        ]
+      },
+      "default_output_dir": "runs/{model_name}/ru_bfcl_v3",
+      "arg_sources": [
+        ["target_cfg", ["candidate_target", "candidate_target_name"]],
+        ["output_dir", ["output_dir"]],
+        ["parallelism", ["parallelism"]],
+        ["request_timeout", ["request_timeout"]],
+        ["limit_samples", ["limit_samples"]],
+        ["request_params", ["request_params"]],
+        ["resume", ["resume"]],
+        ["show_live_stats", ["show_live_stats"]]
+      ]
     }
   }
 }

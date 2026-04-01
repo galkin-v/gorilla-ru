@@ -17,7 +17,7 @@ Note: The `raft` virtual env will be activated in your shell when entering into 
 Dependencies can be installed using the following command: 
 
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 Arguments:

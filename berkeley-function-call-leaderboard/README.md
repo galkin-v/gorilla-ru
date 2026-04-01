@@ -65,7 +65,7 @@ git clone https://github.com/ShishirPatil/gorilla.git
 cd gorilla/berkeley-function-call-leaderboard
 
 # Install the package in editable mode
-pip install -e .
+uv pip install -e .
 ```
 
 ### Installing from PyPI
@@ -75,7 +75,7 @@ install the prebuilt wheel instead. **Be careful not to confuse our package with
 the *unrelated* `bfcl` project on PyPI—make sure you install `bfcl-eval`:**
 
 ```bash
-pip install bfcl-eval  # Be careful not to confuse with the unrelated `bfcl` project on PyPI!
+uv pip install bfcl-eval  # Be careful not to confuse with the unrelated `bfcl` project on PyPI!
 ```
 
 ### Extra Dependencies for Self-Hosted Models
@@ -87,22 +87,22 @@ If you are using an older GPU (T4/V100), you should use `vllm` instead as it sup
 
 **Using `vllm`:**
 ```bash
-pip install -e .[oss_eval_vllm]
+uv pip install -e .[oss_eval_vllm]
 ```
 
 **Using `sglang`:**
 ```bash
-pip install -e .[oss_eval_sglang]
+uv pip install -e .[oss_eval_sglang]
 ```
 
 *Optional:* If using `sglang`, we recommend installing `flashinfer` for speedups. Find instructions [here](https://docs.flashinfer.ai/installation.html).
 
 ### Configuring Project Root Directory
 
-**Important:** If you installed the package from PyPI (using `pip install bfcl-eval`), you **must** set the `BFCL_PROJECT_ROOT` environment variable to specify where the evaluation results and score files should be stored.
+**Important:** If you installed the package from PyPI (using `uv pip install bfcl-eval`), you **must** set the `BFCL_PROJECT_ROOT` environment variable to specify where the evaluation results and score files should be stored.
 Otherwise, you'll need to navigate deep into the Python package's source code folder to access the evaluation results and configuration files.
 
-For editable installations (using `pip install -e .`), setting `BFCL_PROJECT_ROOT` is *optional*--it defaults to the `berkeley-function-call-leaderboard` directory.
+For editable installations (using `uv pip install -e .`), setting `BFCL_PROJECT_ROOT` is *optional*--it defaults to the `berkeley-function-call-leaderboard` directory.
 
 Set `BFCL_PROJECT_ROOT` as an environment variable in your shell environment:
 
@@ -128,7 +128,7 @@ cp bfcl_eval/.env.example .env
 # Fill in necessary values in `.env`
 ```
 
-**For PyPI installations (using `pip install bfcl-eval`):**
+**For PyPI installations (using `uv pip install bfcl-eval`):**
 
 ```bash
 cp $(python -c "import bfcl_eval; print(bfcl_eval.__path__[0])")/.env.example $BFCL_PROJECT_ROOT/.env
@@ -312,7 +312,7 @@ Additionally, four CSV files are generated in `./score/`:
 If you'd like to log evaluation results to WandB artifacts:
 
 ```bash
-pip install -e.[wandb]
+uv pip install -e.[wandb]
 ```
 
 Mkae sure you also set `WANDB_BFCL_PROJECT=ENTITY:PROJECT` in `.env`.

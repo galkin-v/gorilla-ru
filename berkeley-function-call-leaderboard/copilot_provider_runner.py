@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,6 +13,56 @@ from typing import Any, Mapping
 
 
 ROOT = Path(__file__).resolve().parent
+RU_BFCL_BENCHMARK = "ru_bfcl_v3"
+RU_BFCL_SOURCE_ROOT = ROOT.parent / "ru_bfcl"
+RU_BFCL_SUPPORTED_V4_CATEGORIES = {
+    "simple_python",
+    "simple_java",
+    "simple_javascript",
+    "multiple",
+    "parallel",
+    "parallel_multiple",
+    "irrelevance",
+    "live_simple",
+    "live_multiple",
+    "live_parallel",
+    "live_parallel_multiple",
+    "live_irrelevance",
+    "live_relevance",
+    "multi_turn_base",
+    "multi_turn_miss_func",
+    "multi_turn_miss_param",
+    "multi_turn_long_context",
+}
+RU_BFCL_CATEGORY_ALIASES = {
+    "simple": "simple_python",
+    "java": "simple_java",
+    "javascript": "simple_javascript",
+}
+RU_BFCL_PROMPT_FILE_MAP = {
+    "BFCL_v3_simple.json": "BFCL_v4_simple_python.json",
+    "BFCL_v3_java.json": "BFCL_v4_simple_java.json",
+    "BFCL_v3_javascript.json": "BFCL_v4_simple_javascript.json",
+    "BFCL_v3_multiple.json": "BFCL_v4_multiple.json",
+    "BFCL_v3_parallel.json": "BFCL_v4_parallel.json",
+    "BFCL_v3_parallel_multiple.json": "BFCL_v4_parallel_multiple.json",
+    "BFCL_v3_irrelevance.json": "BFCL_v4_irrelevance.json",
+    "BFCL_v3_live_simple.json": "BFCL_v4_live_simple.json",
+    "BFCL_v3_live_multiple.json": "BFCL_v4_live_multiple.json",
+    "BFCL_v3_live_parallel.json": "BFCL_v4_live_parallel.json",
+    "BFCL_v3_live_parallel_multiple.json": "BFCL_v4_live_parallel_multiple.json",
+    "BFCL_v3_live_irrelevance.json": "BFCL_v4_live_irrelevance.json",
+    "BFCL_v3_live_relevance.json": "BFCL_v4_live_relevance.json",
+    "BFCL_v3_multi_turn_base.json": "BFCL_v4_multi_turn_base.json",
+    "BFCL_v3_multi_turn_miss_func.json": "BFCL_v4_multi_turn_miss_func.json",
+    "BFCL_v3_multi_turn_miss_param.json": "BFCL_v4_multi_turn_miss_param.json",
+    "BFCL_v3_multi_turn_long_context.json": "BFCL_v4_multi_turn_long_context.json",
+}
+RU_BFCL_ID_PREFIX_REMAP = {
+    "simple_": "simple_python_",
+    "java_": "simple_java_",
+    "javascript_": "simple_javascript_",
+}
 
 
 def _parse_args() -> argparse.Namespace:
@@ -129,6 +180,148 @@ def _serialize_response(value: Any) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def _is_ru_bfcl_benchmark(benchmark_name: str) -> bool:
+    return benchmark_name.strip() == RU_BFCL_BENCHMARK
+
+
+def _metric_prefix_for_benchmark(benchmark_name: str) -> str:
+    if _is_ru_bfcl_benchmark(benchmark_name):
+        return RU_BFCL_BENCHMARK
+    return "bfcl_v3"
+
+
+def _remap_ru_bfcl_id(test_id: str) -> str:
+    for source_prefix, target_prefix in RU_BFCL_ID_PREFIX_REMAP.items():
+        if test_id.startswith(source_prefix):
+            return f"{target_prefix}{test_id[len(source_prefix):]}"
+    return test_id
+
+
+def _rewrite_jsonl_with_ru_id_remap(source_path: Path, target_path: Path) -> None:
+    rows = _load_jsonl(source_path)
+    rewritten_rows: list[dict[str, Any]] = []
+    for row in rows:
+        entry = dict(row)
+        test_id = entry.get("id")
+        if isinstance(test_id, str):
+            entry["id"] = _remap_ru_bfcl_id(test_id)
+        rewritten_rows.append(entry)
+    _write_jsonl(target_path, rewritten_rows)
+
+
+def _prepare_ru_bfcl_v4_data_layout(bfcl_project_root: Path) -> Path:
+    if not RU_BFCL_SOURCE_ROOT.exists():
+        raise FileNotFoundError(f"RU BFCL dataset directory not found: {RU_BFCL_SOURCE_ROOT}")
+
+    staged_root = bfcl_project_root / "ru_bfcl_data_v4"
+    if staged_root.exists():
+        shutil.rmtree(staged_root)
+    staged_root.mkdir(parents=True, exist_ok=True)
+    (staged_root / "possible_answer").mkdir(parents=True, exist_ok=True)
+    (staged_root / "memory_prereq_conversation").mkdir(parents=True, exist_ok=True)
+
+    source_func_doc_dir = RU_BFCL_SOURCE_ROOT / "multi_turn_func_doc"
+    if source_func_doc_dir.exists():
+        shutil.copytree(source_func_doc_dir, staged_root / "multi_turn_func_doc")
+
+    source_answer_root = RU_BFCL_SOURCE_ROOT / "possible_answer"
+    for source_name, target_name in RU_BFCL_PROMPT_FILE_MAP.items():
+        source_prompt = RU_BFCL_SOURCE_ROOT / source_name
+        if not source_prompt.exists():
+            raise FileNotFoundError(f"Expected RU BFCL prompt file is missing: {source_prompt}")
+        _rewrite_jsonl_with_ru_id_remap(source_prompt, staged_root / target_name)
+
+        source_answer = source_answer_root / source_name
+        if source_answer.exists():
+            _rewrite_jsonl_with_ru_id_remap(
+                source_answer,
+                staged_root / "possible_answer" / target_name,
+            )
+
+    return staged_root
+
+
+def _apply_data_path_override_to_bfcl_modules(data_root: Path) -> None:
+    import bfcl_eval.constants.eval_config as eval_config
+    import bfcl_eval.utils as bfcl_utils
+
+    prompt_path = data_root
+    possible_answer_path = data_root / "possible_answer"
+    multi_turn_func_doc_path = data_root / "multi_turn_func_doc"
+    memory_prereq_path = data_root / "memory_prereq_conversation"
+
+    eval_config.PROMPT_PATH = prompt_path
+    eval_config.POSSIBLE_ANSWER_PATH = possible_answer_path
+    eval_config.MULTI_TURN_FUNC_DOC_PATH = multi_turn_func_doc_path
+    eval_config.MEMORY_PREREQ_CONVERSATION_PATH = memory_prereq_path
+    eval_config.FORMAT_SENSITIVITY_IDS_PATH = (
+        prompt_path / f"{eval_config.VERSION_PREFIX}_format_sensitivity.json"
+    )
+
+    bfcl_utils.PROMPT_PATH = prompt_path
+    bfcl_utils.POSSIBLE_ANSWER_PATH = possible_answer_path
+    bfcl_utils.MULTI_TURN_FUNC_DOC_PATH = multi_turn_func_doc_path
+    bfcl_utils.MEMORY_PREREQ_CONVERSATION_PATH = memory_prereq_path
+    bfcl_utils.FORMAT_SENSITIVITY_IDS_PATH = (
+        prompt_path / f"{bfcl_utils.VERSION_PREFIX}_format_sensitivity.json"
+    )
+
+
+def _normalize_requested_categories_for_ru_bfcl(
+    requested_categories: list[str],
+) -> list[str]:
+    normalized: list[str] = []
+    for category in requested_categories:
+        category = RU_BFCL_CATEGORY_ALIASES.get(category, category)
+        if category in {"all", "all_scoring"}:
+            normalized.extend(["single_turn", "multi_turn"])
+            continue
+        normalized.append(category)
+    return normalized or ["multi_turn"]
+
+
+def _patch_eval_runner_for_missing_categories() -> None:
+    import bfcl_eval.eval_checker.eval_runner as eval_runner_module
+    import bfcl_eval.eval_checker.eval_runner_helper as eval_runner_helper_module
+
+    original_get_category_score = eval_runner_helper_module.get_category_score
+
+    def _safe_get_category_score(score_dict: dict, test_category: str) -> dict:
+        try:
+            return original_get_category_score(score_dict, test_category)
+        except FileNotFoundError:
+            # RU BFCL staged data can omit V4-only categories (e.g., web_search_*).
+            return {"accuracy": 0, "total_count": 0, "display_accuracy": "N/A"}
+
+    eval_runner_helper_module.get_category_score = _safe_get_category_score
+    eval_runner_module.get_category_score = _safe_get_category_score
+
+
+def _validate_ru_bfcl_categories(requested_categories: list[str]) -> None:
+    from bfcl_eval.utils import parse_test_category_argument
+
+    resolved_categories = parse_test_category_argument(requested_categories)
+    unsupported = sorted(set(resolved_categories) - RU_BFCL_SUPPORTED_V4_CATEGORIES)
+    if unsupported:
+        supported = ", ".join(sorted(RU_BFCL_SUPPORTED_V4_CATEGORIES))
+        unsupported_text = ", ".join(unsupported)
+        raise ValueError(
+            "ru_bfcl_v3 supports only BFCL v3-compatible single-turn/live/multi-turn categories. "
+            f"Unsupported categories: {unsupported_text}. Supported categories: {supported}."
+        )
+
+
+def _normalize_run_ids_map_for_ru_bfcl(
+    run_ids_map_raw: Mapping[str, Any],
+) -> dict[str, list[str]]:
+    normalized: dict[str, list[str]] = {}
+    for category, test_ids in run_ids_map_raw.items():
+        normalized_category = RU_BFCL_CATEGORY_ALIASES.get(str(category), str(category))
+        if isinstance(test_ids, (list, tuple)):
+            normalized[normalized_category] = [str(test_id) for test_id in test_ids]
+    return normalized
 
 
 def _runtime_model_key(model_id: str, *, is_fc_model: bool) -> str:
@@ -282,6 +475,7 @@ def _build_predictions(
     model_id: str,
     prompts_by_id: Mapping[str, str],
     category_scores: Mapping[str, Mapping[str, Any]],
+    metric_prefix: str,
 ) -> list[dict[str, Any]]:
     from bfcl_eval.utils import (
         get_directory_structure_by_category,
@@ -311,8 +505,8 @@ def _build_predictions(
                 passed = 0 if test_id in failed_ids else 1
             scores = {}
             if passed is not None:
-                scores["bfcl_v3_pass"] = passed
-                scores[f"bfcl_v3_{_sanitize_metric_name(category)}_pass"] = passed
+                scores[f"{metric_prefix}_pass"] = passed
+                scores[f"{metric_prefix}_{_sanitize_metric_name(category)}_pass"] = passed
 
             predictions.append(
                 {
@@ -337,6 +531,7 @@ def _build_predictions(
 
 def _build_metric_values(
     category_scores: Mapping[str, Mapping[str, Any]],
+    metric_prefix: str,
 ) -> dict[str, tuple[float, int]]:
     metric_values: dict[str, tuple[float, int]] = {}
     if not category_scores:
@@ -349,7 +544,7 @@ def _build_metric_values(
         accuracy = _safe_float(payload.get("accuracy"), default=0.0)
         total_count = _safe_int(payload.get("total_count"), default=0)
         correct_count = _safe_int(payload.get("correct_count"), default=round(accuracy * total_count))
-        metric_values[f"bfcl_v3_{_sanitize_metric_name(category)}_accuracy"] = (
+        metric_values[f"{metric_prefix}_{_sanitize_metric_name(category)}_accuracy"] = (
             accuracy,
             total_count,
         )
@@ -361,8 +556,8 @@ def _build_metric_values(
     unweighted_accuracy = (
         (sum(unweighted_values) / len(unweighted_values)) if unweighted_values else 0.0
     )
-    metric_values["bfcl_v3_weighted_accuracy"] = (weighted_accuracy, weighted_total)
-    metric_values["bfcl_v3_unweighted_accuracy"] = (
+    metric_values[f"{metric_prefix}_weighted_accuracy"] = (weighted_accuracy, weighted_total)
+    metric_values[f"{metric_prefix}_unweighted_accuracy"] = (
         unweighted_accuracy,
         len(unweighted_values),
     )
@@ -393,6 +588,14 @@ def main() -> int:
     requested_categories = _normalize_test_categories(
         request_params.get("bfcl_test_categories", request_params.get("bfcl_test_category"))
     )
+    metric_prefix = _metric_prefix_for_benchmark(args.benchmark_name)
+
+    if _is_ru_bfcl_benchmark(args.benchmark_name):
+        staged_data_root = _prepare_ru_bfcl_v4_data_layout(bfcl_project_root)
+        _apply_data_path_override_to_bfcl_modules(staged_data_root)
+        requested_categories = _normalize_requested_categories_for_ru_bfcl(requested_categories)
+        _validate_ru_bfcl_categories(requested_categories)
+
     bfcl_temperature = _safe_float(
         request_params.get("bfcl_temperature", request_params.get("temperature", 0.001)),
         default=0.001,
@@ -414,12 +617,17 @@ def main() -> int:
     run_ids_map_raw = request_params.get("bfcl_run_ids")
     run_ids_map: dict[str, list[str]]
     if isinstance(run_ids_map_raw, Mapping):
-        run_ids_map = {
-            str(category): [str(test_id) for test_id in test_ids]
-            for category, test_ids in run_ids_map_raw.items()
-            if isinstance(test_ids, (list, tuple))
-        }
+        if _is_ru_bfcl_benchmark(args.benchmark_name):
+            run_ids_map = _normalize_run_ids_map_for_ru_bfcl(run_ids_map_raw)
+        else:
+            run_ids_map = {
+                str(category): [str(test_id) for test_id in test_ids]
+                for category, test_ids in run_ids_map_raw.items()
+                if isinstance(test_ids, (list, tuple))
+            }
         if run_ids_map:
+            if _is_ru_bfcl_benchmark(args.benchmark_name):
+                _validate_ru_bfcl_categories(sorted(run_ids_map.keys()))
             requested_categories = sorted(run_ids_map.keys())
     else:
         run_ids_map = _build_run_ids_map(
@@ -444,7 +652,10 @@ def main() -> int:
     )
 
     from bfcl_eval._llm_response_generation import main as generation_main
-    from bfcl_eval.eval_checker.eval_runner import main as evaluation_main
+    import bfcl_eval.eval_checker.eval_runner as eval_runner_module
+
+    if _is_ru_bfcl_benchmark(args.benchmark_name):
+        _patch_eval_runner_for_missing_categories()
 
     generation_args = SimpleNamespace(
         model=[model_key],
@@ -475,7 +686,7 @@ def main() -> int:
             flush=True,
         )
     generation_main(generation_args)
-    evaluation_main(
+    eval_runner_module.main(
         [model_key],
         requested_categories,
         result_dir_name,
@@ -502,8 +713,9 @@ def main() -> int:
         model_id=args.candidate_model_id,
         prompts_by_id=prompts_by_id,
         category_scores=category_scores,
+        metric_prefix=metric_prefix,
     )
-    metric_values = _build_metric_values(category_scores)
+    metric_values = _build_metric_values(category_scores, metric_prefix=metric_prefix)
 
     _write_jsonl(output_dir / "byob_predictions.jsonl", predictions)
     sample_count = len(predictions)
