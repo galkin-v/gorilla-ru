@@ -1,0 +1,46 @@
+framework:
+  name: ru-bfcl-v3
+  pkg_name: ru_bfcl_v3_bridge
+  full_name: RU BFCL v3 bridge
+  description: Wraps local RU BFCL v3 provider runner for NeMo Evaluator.
+  url: https://github.com/ShishirPatil/gorilla
+
+defaults:
+  command: >-
+    cd /workspace/berkeley-function-call-leaderboard &&
+    python3 copilot_provider_runner.py
+    --benchmark-name ru_bfcl_v3
+    --output-dir {{config.output_dir}}
+    --candidate-base-url "{{target.api_endpoint.url | replace('/chat/completions', '')}}"
+    --candidate-model-id "{{target.api_endpoint.model_id}}"
+    --candidate-api-key "{% if target.api_endpoint.get('api_key_name') is not none %}${{target.api_endpoint.get('api_key_name')}}{% elif target.api_endpoint.get('api_key') is not none %}${{target.api_endpoint.get('api_key')}}{% endif %}"
+    --parallelism {{config.params.parallelism}}
+    --request-timeout {{config.params.request_timeout}}
+    --limit-samples {{config.params.limit_samples}}
+    --request-params-json '{"temperature": {{config.params.temperature}}, "top_p": {{config.params.top_p}}, "max_tokens": {{config.params.max_new_tokens}}, "bfcl_test_categories": "{{config.params.extra.bfcl_test_categories}}", "bfcl_is_fc_model": "{{config.params.extra.bfcl_is_fc_model}}", "bfcl_use_openai_responses": "{{config.params.extra.bfcl_use_openai_responses}}"}'
+    --resume 1
+    --show-live-stats 1
+  config:
+    params:
+      temperature: 0.0
+      top_p: 1.0
+      max_new_tokens: 4096
+      parallelism: 8
+      request_timeout: 900
+      limit_samples: -1
+      extra:
+        bfcl_test_categories: multi_turn
+        bfcl_is_fc_model: true
+        bfcl_use_openai_responses: false
+  target:
+    api_endpoint:
+      type: chat
+
+evaluations:
+  - name: ru_bfcl_v3
+    description: Russian BFCL v3 benchmark.
+    defaults:
+      config:
+        type: ru_bfcl_v3
+        supported_endpoint_types:
+          - chat
